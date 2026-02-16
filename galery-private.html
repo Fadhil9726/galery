@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galery Private</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Plus+Jakarta+Sans:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --neon: #00f2ff; --bg: #020617; --glass: rgba(255, 255, 255, 0.05); }
+        body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: white; overflow: hidden; }
+
+        /* --- AUTH SCREEN --- */
+        #auth-screen {
+            position: fixed; inset: 0; background: radial-gradient(circle at center, #0f172a, #020617);
+            z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+
+        .auth-container { text-align: center; animation: fadeIn 0.8s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+        .lock-icon { font-size: 40px; color: var(--neon); margin-bottom: 10px; text-shadow: 0 0 15px var(--neon); }
+        .vault-title { font-family: 'Orbitron', sans-serif; letter-spacing: 5px; font-size: 18px; margin-bottom: 30px; opacity: 0.8; }
+
+        /* PIN Dots */
+        .pin-dots { display: flex; justify-content: center; gap: 15px; margin-bottom: 40px; }
+        .dot { width: 12px; height: 12px; border: 2px solid var(--neon); border-radius: 50%; transition: 0.3s; box-shadow: 0 0 5px var(--neon); }
+        .dot.active { background: var(--neon); box-shadow: 0 0 15px var(--neon); transform: scale(1.2); }
+
+        /* Keypad Hologram */
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 280px; }
+        .key {
+            width: 70px; height: 70px; border-radius: 50%; background: var(--glass);
+            border: 1px solid rgba(0, 242, 255, 0.1); display: flex; align-items: center;
+            justify-content: center; font-size: 24px; font-family: 'Orbitron', sans-serif;
+            cursor: pointer; transition: 0.2s; -webkit-tap-highlight-color: transparent;
+        }
+        .key:active { background: var(--neon); color: black; box-shadow: 0 0 30px var(--neon); transform: scale(0.9); }
+        .key.action { font-size: 14px; background: rgba(255, 255, 255, 0.02); }
+
+        /* --- DASHBOARD --- */
+        #app { display: none; }
+        .nav { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; padding: 15px; }
+        .item { position: relative; aspect-ratio: 1; border-radius: 20px; overflow: hidden; background: #111; cursor: pointer; border: 1px solid var(--glass); }
+        .item img, .item video { width: 100%; height: 100%; object-fit: cover; }
+        
+        .fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: var(--neon); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(0,242,255,0.4); cursor: pointer; color: black; font-size: 30px; font-weight: bold; }
+
+        /* Viewer */
+        #viewer { display: none; position: fixed; inset: 0; background: black; z-index: 10000; flex-direction: column; }
+        .v-content { flex: 1; display: flex; align-items: center; justify-content: center; }
+        .v-content img, .v-content video { max-width: 100%; max-height: 85vh; border-radius: 15px; }
+        .v-nav { padding: 20px; display: flex; justify-content: space-between; }
+
+        .shake { animation: shake 0.3s; border: 1px solid red !important; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen">
+        <div class="auth-container">
+            <div class="lock-icon">🔒</div>
+            <div class="vault-title" id="status-text">SYSTEM LOCKED</div>
+            
+            <div class="pin-dots" id="pin-dots">
+                <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+            </div>
+
+            <div class="keypad">
+                <div class="key" onclick="press(1)">1</div><div class="key" onclick="press(2)">2</div><div class="key" onclick="press(3)">3</div>
+                <div class="key" onclick="press(4)">4</div><div class="key" onclick="press(5)">5</div><div class="key" onclick="press(6)">6</div>
+                <div class="key" onclick="press(7)">7</div><div class="key" onclick="press(8)">8</div><div class="key" onclick="press(9)">9</div>
+                <div class="key action" onclick="del()">DEL</div><div class="key" onclick="press(0)">0</div><div class="key action" onclick="clearAll()">CLR</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app">
+        <div class="nav">
+            <button onclick="changePin()" style="background:none; border:1px solid var(--glass); color:white; border-radius:10px; padding:5px 15px;">SET PIN</button>
+            <div style="font-family:'Orbitron'; color:var(--neon)">VAULT.SYS</div>
+            <button onclick="location.reload()" style="background:none; border:none; color:#ff4444;">LOGOUT</button>
+        </div>
+        <div class="grid" id="grid"></div>
+        <div class="fab" onclick="document.getElementById('file-in').click()">+</div>
+        <input type="file" id="file-in" hidden multiple onchange="upload(event)">
+    </div>
+
+    <div id="viewer">
+        <div class="v-nav">
+            <button onclick="closeV()" style="color:white; background:none; border:none; font-size:20px;">✕</button>
+            <button id="dl-btn" style="background:var(--neon); border:none; padding:5px 15px; border-radius:8px; font-weight:bold;">DOWNLOAD</button>
+        </div>
+        <div class="v-content" id="v-content"></div>
+    </div>
+
+    <script>
+        let db;
+        let inputPin = "";
+        const pinKey = 'vault_hologram_pin';
+
+        // DATABASE
+        const req = indexedDB.open("HologramVaultDB", 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore("media", {keyPath:"id", autoIncrement:true});
+        req.onsuccess = e => db = e.target.result;
+
+        // AUTH LOGIC
+        const dots = document.querySelectorAll('.dot');
+        const statusText = document.getElementById('status-text');
+        
+        if(!localStorage.getItem(pinKey)) {
+            statusText.innerText = "INITIALIZE PIN";
+        }
+
+        function press(num) {
+            if(inputPin.length < 4) {
+                inputPin += num;
+                updateDots();
+                if(inputPin.length === 4) setTimeout(checkPin, 200);
+            }
+        }
+
+        function updateDots() {
+            dots.forEach((dot, i) => {
+                if(i < inputPin.length) dot.classList.add('active');
+                else dot.classList.remove('active');
+            });
+        }
+
+        function del() { inputPin = inputPin.slice(0, -1); updateDots(); }
+        function clearAll() { inputPin = ""; updateDots(); }
+
+        function checkPin() {
+            const saved = localStorage.getItem(pinKey);
+            if(!saved) {
+                localStorage.setItem(pinKey, inputPin);
+                alert("PIN INITIALIZED!");
+                location.reload();
+            } else if(inputPin === saved) {
+                statusText.innerText = "ACCESS GRANTED";
+                statusText.style.color = "var(--neon)";
+                document.getElementById('auth-screen').style.opacity = "0";
+                setTimeout(() => {
+                    document.getElementById('auth-screen').style.display = "none";
+                    document.getElementById('app').style.display = "block";
+                    loadMedia();
+                }, 500);
+            } else {
+                statusText.innerText = "ACCESS DENIED";
+                statusText.style.color = "red";
+                inputPin = "";
+                updateDots();
+                setTimeout(() => {
+                    statusText.innerText = "SYSTEM LOCKED";
+                    statusText.style.color = "white";
+                }, 1000);
+            }
+        }
+
+        // MEDIA LOGIC
+        async function upload(e) {
+            const files = Array.from(e.target.files);
+            const tx = db.transaction("media", "readwrite");
+            for(const f of files) tx.objectStore("media").add({type: f.type, data: f});
+            tx.oncomplete = () => loadMedia();
+        }
+
+        function loadMedia() {
+            const g = document.getElementById('grid'); g.innerHTML = "";
+            db.transaction("media").objectStore("media").openCursor().onsuccess = e => {
+                const c = e.target.result;
+                if(c) {
+                    const url = URL.createObjectURL(c.value.data);
+                    const div = document.createElement('div');
+                    div.className = 'item';
+                    if(c.value.type.startsWith('video')) {
+                        div.innerHTML = `<video src="${url}#t=0.5"></video><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">▶️</div>`;
+                    } else {
+                        div.innerHTML = `<img src="${url}">`;
+                    }
+                    div.onclick = () => {
+                        document.getElementById('viewer').style.display = "flex";
+                        document.getElementById('v-content').innerHTML = c.value.type.startsWith('video') ? `<video src="${url}" controls autoplay></video>` : `<img src="${url}">`;
+                        document.getElementById('dl-btn').onclick = () => {
+                            const a = document.createElement('a'); a.href = url; a.download = "vault_file"; a.click();
+                        };
+                    };
+                    g.appendChild(div);
+                    c.continue();
+                }
+            };
+        }
+
+        function closeV() { document.getElementById('viewer').style.display = "none"; document.getElementById('v-content').innerHTML = ""; }
+
+        function changePin() {
+            const old = prompt("OLD PIN:");
+            if(old === localStorage.getItem(pinKey)) {
+                const n = prompt("NEW PIN (4 DIGIT):");
+                if(n && n.length === 4) { localStorage.setItem(pinKey, n); alert("PIN UPDATED"); }
+            }
+        }
+    </script>
+</body>
+</html>
